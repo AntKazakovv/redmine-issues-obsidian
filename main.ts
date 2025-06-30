@@ -6,12 +6,11 @@ import {
     PluginSettingTab,
     Setting,
 } from 'obsidian';
-import {FileSystemAdapter} from 'obsidian'; // для проверки типа адаптера
+import {FileSystemAdapter} from 'obsidian';
 import { requestUrl } from 'obsidian';
+import { uiTexts } from 'text'
 
 import {sync} from 'modules/ticket-creator.js';
-
-// Remember to rename these classes and interfaces!
 
 interface RedmineIssuesSettings {
     apiKey: string | null;
@@ -23,17 +22,21 @@ const DEFAULT_SETTINGS: RedmineIssuesSettings = {
     redmineUrl: null,
 };
 
-
-export default class MyPlugin extends Plugin {
+export default class RedmineIssuePlugin extends Plugin {
     settings: RedmineIssuesSettings;
+    issuesParams: {
+        assigned_to_id: 'me',
+        limit: '100',
+        offset: '0',
+    }
 
     checkRequiredSettings(): boolean {
         if (!this.settings.apiKey) {
-            new Notice('You need to enter your API key in plugin settings');
+            new Notice(uiTexts.notifications.errors.settingsApiKey);
             return false;
         }
         if (!this.settings.redmineUrl) {
-            new Notice('You need to enter Redmine URL in plugin settings');
+            new Notice(uiTexts.notifications.errors.settingsURL);
             return false;
         }
         return true;
@@ -52,13 +55,7 @@ export default class MyPlugin extends Plugin {
 
         let data = null;
 
-        const params = new URLSearchParams(
-            {
-                assigned_to_id: 'me',
-                limit: '100',
-                offset: '0',
-            }
-        )
+        const params = new URLSearchParams(this.issuesParams)
 
         const options = {
             url: `${this.settings.redmineUrl}/issues.json?${params}`,
@@ -81,7 +78,7 @@ export default class MyPlugin extends Plugin {
             issues = [...issues, ...data.issues];
         } catch (err) {
             console.error('Error in requestUrl:', err);
-            new Notice('Enter a valid API key in settings, or check your rights in Redmine');
+            new Notice(uiTexts.notifications.errors.settingsInvalidApiKey);
         }
 
         return issues;
@@ -105,23 +102,22 @@ export default class MyPlugin extends Plugin {
             vaultPath = adapter.getBasePath();
             console.log('Absolute vault path:', vaultPath);
         } else {
-            console.warn('Не удалось получить путь: адаптер не является FileSystemAdapter');
+            console.warn('adapter is not FileSystemAdapter');
         }
 
-        // This creates an icon in the left ribbon.
         const ribbonIconEl = this.addRibbonIcon(
             'dice',
             'Redmine issues: Sync',
             async () => {
                 const status = await this.createIssues(vaultPath ?? '');
                 if (status) 
-                    new Notice('Tickets updated succesfully');
+                    new Notice(uiTexts.notifications.info.successfullySync);
             });
-        // Perform additional things with the ribbon
+
         ribbonIconEl.addClass('my-plugin-ribbon-class');
 
-        const statusBarItemEl = this.addStatusBarItem();
-        statusBarItemEl.setText('Status Bar Text');
+        // const statusBarItemEl = this.addStatusBarItem();
+        // statusBarItemEl.setText('Status Bar Text');
 
         this.addCommand({
             id: 'sync-issues',
@@ -130,9 +126,7 @@ export default class MyPlugin extends Plugin {
             },
         });
 
-        this.addSettingTab(new SampleSettingTab(this.app, this));
-
-        this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+        this.addSettingTab(new SampleSettingTab(this.app, this));        
     }
 
     onunload() {}
@@ -147,9 +141,9 @@ export default class MyPlugin extends Plugin {
 }
 
 class SampleSettingTab extends PluginSettingTab {
-    plugin: MyPlugin;
+    plugin: RedmineIssuePlugin;
 
-    constructor(app: App, plugin: MyPlugin) {
+    constructor(app: App, plugin: RedmineIssuePlugin) {
         super(app, plugin);
         this.plugin = plugin;
     }
@@ -160,11 +154,11 @@ class SampleSettingTab extends PluginSettingTab {
         containerEl.empty();
 
         new Setting(containerEl)
-            .setName('Redmine API key')
-            .setDesc('Your Redmine API Key')
+            .setName(uiTexts.settings.apiKey.name)
+            .setDesc(uiTexts.settings.apiKey.desc)
             .addText((text) =>
                 text
-                    .setPlaceholder('Enter API key')
+                    .setPlaceholder(uiTexts.settings.apiKey.placeholder)
                     .setValue(this.plugin.settings.apiKey ?? '')
                     .onChange(async (value) => {
                         this.plugin.settings.apiKey = value;
@@ -173,11 +167,11 @@ class SampleSettingTab extends PluginSettingTab {
             )
 
         new Setting(containerEl)
-            .setName('Redmine URL')
-            .setDesc('Redmine domain url')
+            .setName(uiTexts.settings.url.name)
+            .setDesc(uiTexts.settings.url.desc)
             .addText((text) =>
                 text
-                    .setPlaceholder('Enter url example: https://my.redmine.com/')
+                    .setPlaceholder(uiTexts.settings.url.placeholder)
                     .setValue(this.plugin.settings.redmineUrl ?? '')
                     .onChange(async (value) => {
                         this.plugin.settings.redmineUrl = value;
