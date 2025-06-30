@@ -1,0 +1,11 @@
+{
+	"id": "redmine-issues",
+	"name": "Redmine issues",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Creates notes for each task from Redmine and forms a Kanban board",
+	"author": "Anton Kazakov",
+	"authorUrl": "https://obsidian.md",
+	"fundingUrl": "https://obsidian.md/pricing",
+	"isDesktopOnly": true
+}
