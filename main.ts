@@ -15,11 +15,13 @@ import {sync} from 'modules/ticket-creator.js';
 interface RedmineIssuesSettings {
     apiKey: string | null;
     redmineUrl: string | null;
+    showTableProps: boolean;
 }
 
 const DEFAULT_SETTINGS: RedmineIssuesSettings = {
     apiKey: null,
     redmineUrl: null,
+    showTableProps: false,
 };
 
 export default class RedmineIssuePlugin extends Plugin {
@@ -47,7 +49,6 @@ export default class RedmineIssuePlugin extends Plugin {
         };
 
         let issues: object[] = [];
-
         let data = null;
 
         const params = new URLSearchParams(     {
@@ -61,8 +62,6 @@ export default class RedmineIssuePlugin extends Plugin {
             method: 'GET',
             headers,
         };
-
-        console.log(options.url);
 
         try {
             const resp = await requestUrl({
@@ -90,7 +89,7 @@ export default class RedmineIssuePlugin extends Plugin {
 
         if (!issues) return false;
 
-        await sync(vaultPath, issues);
+        await sync(vaultPath, issues, this.settings.showTableProps);
         return true;
     }
 
@@ -177,5 +176,17 @@ class SampleSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     }),
             );
+
+        new Setting(containerEl)
+            .setName(uiTexts.settings.showTableProperties.name)
+            .setDesc(uiTexts.settings.showTableProperties.desc)
+            .addToggle(toggle =>
+                toggle
+                  .setValue(this.plugin.settings.showTableProps)
+                  .onChange(async (value) => {
+                    this.plugin.settings.showTableProps = value;
+                    await this.plugin.saveSettings();
+                  })
+              );
     }
 }

@@ -19,6 +19,10 @@ export const uiTexts = {
           name: 'Redmine URL',
           desc: 'Redmine domain url',
           placeholder: 'Enter url example: https://my.redmine.com/',
+      },
+      showTableProperties: {
+          name: 'Show issue information',
+          desc: 'Show basic issue information display as a table in notes (need to resync issues)'
       }
   }
 }

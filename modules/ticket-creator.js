@@ -10,6 +10,7 @@ function createIssueObject(issue) {
   const issueId = issue.id;
   const title = issue.subject.replace(/"/g, '\\"');
   const status = issue.status.name;
+  const priority = issue.priority.name;
   const project = issue.project.name;
   const created = issue.created_on.split("T")[0];
   const updated = issue.updated_on.split("T")[0];
@@ -20,30 +21,68 @@ function createIssueObject(issue) {
     issueId,
     title,
     status,
+    priority,
     project,
     created,
     updated,
     url,
-    description
+    description,
+    ...issue.custom_fields.reduce((acc, field) => {
+      acc[field.name.replace(' ', '_').toLowerCase()] = field.value;
+      return acc;
+    },{}),
   }
 }
 
-function createMarkdown(issue) {
-  const issueObj = createIssueObject(issue)
+function createPropTable(issueObj) {
+  const headers = ['Property', 'Value'];
+
+  const mdTable =
+    `| ${headers.join(' | ')} |\n` +
+    `| ${headers.map(() => '---').join(' | ')} |\n`// +
+    + Object.keys(issueObj)
+      .map(propName =>
+        `| ${propName.charAt(0).toUpperCase() + propName.slice(1)} | ${issueObj[propName]} |\n`)
+      .join("")
+
+  return mdTable;
+}
+
+function createMarkdown(issue, showTable) {
+  const {
+    title,
+    issueId,
+    url,
+    status,
+    priority,
+    project,
+    created,
+    updated,
+    sprint_complexity,
+    description,
+  } = createIssueObject(issue)
 
   return `---
-title: "${issueObj.title}"
-ticket_id: ${issueObj.issueId}
-url: "${issueObj.url}"
-status: "${issueObj.status}"
-project: "${issueObj.project}"
-created: ${issueObj.created}
-updated: ${issueObj.updated}
+title: "${title}"
+ticket_id: ${issueId}
+url: "${url}"
+status: "${status}"
+priority: ${priority}
+project: "${project}"
+created: ${created}
+updated: ${updated}
+sprint_conplexity: ${sprint_complexity}
 ---
-#${issueObj.status}
-# ${issueObj.title}
+#${status.replace(' ', '')}
+# ${title}
+${showTable ? createPropTable({
+  url,
+  status,
+  priority,
+  sprint_complexity
+}) : ''}
 ---
-${issueObj.description}
+${description}
 `;
 }
 
@@ -106,14 +145,14 @@ function clearDirectorySync(dir) {
   }
 }
 
-export const sync = async (vaultPath, issues) => {
+export const sync = async (vaultPath, issues, showTable) => {
   const pathToTickets = `${vaultPath}/Tickets`;
   fs.mkdirSync(pathToTickets, { recursive: true });
   clearDirectorySync(pathToTickets);
 
   // Create ticket notes
   for (const issue of issues) {
-    const mdContent = createMarkdown(issue);
+    const mdContent = createMarkdown(issue, showTable);
 
     const filename = path.join(pathToTickets, `${issue.id}.md`);
     fs.writeFileSync(filename, mdContent, { flag: 'a' });
