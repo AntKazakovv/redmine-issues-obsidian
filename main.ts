@@ -7,8 +7,8 @@ import {
     Setting,
 } from 'obsidian';
 import {FileSystemAdapter} from 'obsidian';
-import { requestUrl } from 'obsidian';
-import { uiTexts } from 'text'
+import {requestUrl} from 'obsidian';
+import {uiTexts} from 'text';
 
 import {sync} from 'modules/ticket-creator.js';
 
@@ -24,11 +24,6 @@ const DEFAULT_SETTINGS: RedmineIssuesSettings = {
 
 export default class RedmineIssuePlugin extends Plugin {
     settings: RedmineIssuesSettings;
-    issuesParams: {
-        assigned_to_id: 'me',
-        limit: '100',
-        offset: '0',
-    }
 
     checkRequiredSettings(): boolean {
         if (!this.settings.apiKey) {
@@ -47,7 +42,7 @@ export default class RedmineIssuePlugin extends Plugin {
 
         const headers = {
             'X-Redmine-API-Key': this.settings.apiKey ?? '',
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'User-Agent': 'Obsidian-Plugin',
         };
 
@@ -55,7 +50,11 @@ export default class RedmineIssuePlugin extends Plugin {
 
         let data = null;
 
-        const params = new URLSearchParams(this.issuesParams)
+        const params = new URLSearchParams(     {
+            assigned_to_id: 'me',
+            limit: '100',
+            offset: '0',
+        });
 
         const options = {
             url: `${this.settings.redmineUrl}/issues.json?${params}`,
@@ -63,12 +62,14 @@ export default class RedmineIssuePlugin extends Plugin {
             headers,
         };
 
+        console.log(options.url);
+
         try {
             const resp = await requestUrl({
                 url: options.url,
                 method: options.method,
                 headers: options.headers,
-              });
+            });
 
             if (resp.status !== 200) {
                 console.error('Error API:', resp.status, resp.text);
@@ -86,7 +87,7 @@ export default class RedmineIssuePlugin extends Plugin {
 
     async createIssues(vaultPath: string): Promise<boolean> {
         const issues = await this.fetchIssues();
-        
+
         if (!issues) return false;
 
         await sync(vaultPath, issues);
@@ -105,14 +106,13 @@ export default class RedmineIssuePlugin extends Plugin {
             console.warn('adapter is not FileSystemAdapter');
         }
 
-        const ribbonIconEl = this.addRibbonIcon(
-            'dice',
-            'Redmine issues: Sync',
-            async () => {
-                const status = await this.createIssues(vaultPath ?? '');
-                if (status) 
-                    new Notice(uiTexts.notifications.info.successfullySync);
-            });
+        const status = await this.createIssues(vaultPath ?? '');
+        if (status) new Notice(uiTexts.notifications.info.successfullySync);
+
+        const ribbonIconEl = this.addRibbonIcon('dice', 'Redmine issues: Sync', async () => {
+            const status = await this.createIssues(vaultPath ?? '');
+            if (status) new Notice(uiTexts.notifications.info.successfullySync);
+        });
 
         ribbonIconEl.addClass('my-plugin-ribbon-class');
 
@@ -122,11 +122,10 @@ export default class RedmineIssuePlugin extends Plugin {
         this.addCommand({
             id: 'sync-issues',
             name: 'Syncthronize issues',
-            callback: async () => {
-            },
+            callback: async () => {},
         });
 
-        this.addSettingTab(new SampleSettingTab(this.app, this));        
+        this.addSettingTab(new SampleSettingTab(this.app, this));
     }
 
     onunload() {}
@@ -164,7 +163,7 @@ class SampleSettingTab extends PluginSettingTab {
                         this.plugin.settings.apiKey = value;
                         await this.plugin.saveSettings();
                     }),
-            )
+            );
 
         new Setting(containerEl)
             .setName(uiTexts.settings.url.name)
@@ -177,6 +176,6 @@ class SampleSettingTab extends PluginSettingTab {
                         this.plugin.settings.redmineUrl = value;
                         await this.plugin.saveSettings();
                     }),
-            )
+            );
     }
 }
