@@ -15,7 +15,14 @@ The plugin integrates with your Redmine tracker. It allows you to:
 ---
 
 ## 🚀 Installation
-
+1. Open Obsidian and go to `Settings` → `Community plugins`.
+2. Turn off “Safe mode” to allow installation of third-party plugins.
+3. Click “Open plugins folder” (the folder icon to the right of "Installed plugins") — a folder will open.
+4. Create a new folder there named redmine-issues.
+5. Copy the files `main.js` and `manifest.json` into this folder (download them from Releases).
+6. Return to Obsidian and click the Reload icon next to the folder icon (from step 3).
+7. The plugin will appear in the list as Redmine-issues — enable it.
+8. Now go to the plugin settings (gear icon) and enter the two required fields: Redmine API Key and Redmine URL. You can then close the settings.
 The **Kanban** plugin is required for proper display of the ticket board.
 
 ---
