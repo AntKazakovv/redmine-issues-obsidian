@@ -30,7 +30,7 @@ function createIssueObject(issue) {
     ...issue.custom_fields.reduce((acc, field) => {
       acc[field.name.replace(' ', '_').toLowerCase()] = field.value;
       return acc;
-    },{}),
+    }, {}),
   }
 }
 
@@ -76,11 +76,11 @@ sprint_conplexity: ${sprint_complexity}
 #${status.replace(' ', '')}
 # ${title}
 ${showTable ? createPropTable({
-  url,
-  status,
-  priority,
-  sprint_complexity
-}) : ''}
+    url,
+    status,
+    priority,
+    sprint_complexity
+  }) : ''}
 ---
 ${description}
 `;
@@ -145,8 +145,8 @@ function clearDirectorySync(dir) {
   }
 }
 
-export const sync = async (vaultPath, issues, showTable) => {
-  const pathToTickets = `${vaultPath}/Tickets`;
+export const sync = async (vaultPath, issues, showTable, ticketsDir) => {
+  const pathToTickets = `${vaultPath}/${ticketsDir}`;
   fs.mkdirSync(pathToTickets, { recursive: true });
   clearDirectorySync(pathToTickets);
 
@@ -162,7 +162,7 @@ export const sync = async (vaultPath, issues, showTable) => {
   const filenameKanban = path.join(vaultPath, `Kanban board.md`);
   try {
     fs.unlinkSync(filenameKanban);
-  } catch(e) {}
+  } catch (e) { }
   fs.writeFileSync(filenameKanban, createKanban(issues), { flag: 'a' });
 };
 

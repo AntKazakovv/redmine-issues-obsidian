@@ -9,24 +9,54 @@ import {
 import {FileSystemAdapter} from 'obsidian';
 import {requestUrl} from 'obsidian';
 import {uiTexts} from 'text';
+import * as path from 'path';
+import * as fs from 'fs';
 
 import {sync} from 'modules/ticket-creator.js';
+
+type ErrorHandlerCallback = (err: any, context: any, methodName: string, args: any[]) => void;
+const defaultErrorHandler = (err: any, ctx: any, name: string, args: any[]) => {
+        console.error(`Ошибка в ${name}:`, err);
+    }
+
+function catchErrors(
+    handler: ErrorHandlerCallback = defaultErrorHandler): MethodDecorator {
+
+    return function (target, propertyKey, descriptor: PropertyDescriptor) {
+        const original = descriptor.value;
+        descriptor.value = async function (...args: any[]) {
+            try {
+                const result = original.apply(this, args);
+                if (result instanceof Promise) {
+                    return await result;
+                }
+                return result;
+            } catch (err) {
+                handler.call(this, err, this, propertyKey as string, args);
+            }
+        };
+        return descriptor;
+    };
+}
 
 interface RedmineIssuesSettings {
     apiKey: string | null;
     redmineUrl: string | null;
     showTableProps: boolean;
+    ticketsDir: string;
 }
 
 const DEFAULT_SETTINGS: RedmineIssuesSettings = {
     apiKey: null,
     redmineUrl: null,
     showTableProps: false,
+    ticketsDir: 'Tickets/',
 };
 
 export default class RedmineIssuePlugin extends Plugin {
     settings: RedmineIssuesSettings;
 
+    @catchErrors()
     checkRequiredSettings(): boolean {
         if (!this.settings.apiKey) {
             new Notice(uiTexts.notifications.errors.settingsApiKey);
@@ -36,9 +66,18 @@ export default class RedmineIssuePlugin extends Plugin {
             new Notice(uiTexts.notifications.errors.settingsURL);
             return false;
         }
+
+        const absolutePath = path.resolve(this.settings.ticketsDir);
+        try {
+            const stat = fs.statSync(absolutePath);
+            if (!stat.isDirectory()) return false;
+        } catch (err) {
+            return false;
+        }
         return true;
     }
 
+    @catchErrors()
     async fetchIssues(): Promise<object[] | null> {
         if (!this.checkRequiredSettings()) return null;
 
@@ -51,7 +90,7 @@ export default class RedmineIssuePlugin extends Plugin {
         let issues: object[] = [];
         let data = null;
 
-        const params = new URLSearchParams(     {
+        const params = new URLSearchParams({
             assigned_to_id: 'me',
             limit: '100',
             offset: '0',
@@ -84,15 +123,17 @@ export default class RedmineIssuePlugin extends Plugin {
         return issues;
     }
 
+    @catchErrors()
     async createIssues(vaultPath: string): Promise<boolean> {
         const issues = await this.fetchIssues();
 
         if (!issues) return false;
 
-        await sync(vaultPath, issues, this.settings.showTableProps);
+        await sync(vaultPath, issues, this.settings.showTableProps, this.settings.ticketsDir);
         return true;
     }
 
+    @catchErrors()
     async onload() {
         await this.loadSettings();
         const adapter = this.app.vault.adapter;
@@ -180,13 +221,24 @@ class SampleSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName(uiTexts.settings.showTableProperties.name)
             .setDesc(uiTexts.settings.showTableProperties.desc)
-            .addToggle(toggle =>
-                toggle
-                  .setValue(this.plugin.settings.showTableProps)
-                  .onChange(async (value) => {
+            .addToggle((toggle) =>
+                toggle.setValue(this.plugin.settings.showTableProps).onChange(async (value) => {
                     this.plugin.settings.showTableProps = value;
                     await this.plugin.saveSettings();
-                  })
-              );
+                }),
+            );
+
+        new Setting(containerEl)
+            .setName(uiTexts.settings.ticketsDir.name)
+            .setDesc(uiTexts.settings.ticketsDir.desc)
+            .addText((text) =>
+                text
+                    .setPlaceholder(uiTexts.settings.ticketsDir.placeholder)
+                    .setValue(this.plugin.settings.ticketsDir ?? '')
+                    .onChange(async (value) => {
+                        this.plugin.settings.ticketsDir = value;
+                        await this.plugin.saveSettings();
+                    }),
+            );
     }
 }

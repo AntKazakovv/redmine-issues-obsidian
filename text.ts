@@ -23,6 +23,11 @@ export const uiTexts = {
       showTableProperties: {
           name: 'Show issue information',
           desc: 'Show basic issue information display as a table in notes (need to resync issues)'
+      },
+      ticketsDir: {
+          name: 'Tickets directory',
+          desc: 'The directory where all ticket files will be saved relative to the root of the vault',
+          placeholder: 'Default: /Tickets',
       }
   }
 }
