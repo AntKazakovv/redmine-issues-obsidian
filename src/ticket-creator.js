@@ -48,6 +48,20 @@ function createPropTable(issueObj) {
   return mdTable;
 }
 
+function addComments(issue) {
+  if (!issue.journals) return null;
+
+  return issue.journals.map(item => {
+    if (!!item.notes) {
+      return `
+> [!${item.user.name} ]
+> ==${item.created_on.replace('T', ' '.replace('Z', ''))}==
+${item.notes.split('\r\n').join(`\n>`)}
+`
+    }
+  }).join(``);
+}
+
 function createMarkdown(issue, showTable) {
   const {
     title,
@@ -61,6 +75,8 @@ function createMarkdown(issue, showTable) {
     sprint_complexity,
     description,
   } = createIssueObject(issue)
+
+  const comments = addComments(issue);
 
   return `---
 title: "${title}"
@@ -83,6 +99,11 @@ ${showTable ? createPropTable({
   }) : ''}
 ---
 ${description}
+
+---
+
+${comments ? '# Комментарии\n' + comments : '' }
+
 `;
 }
 

@@ -9,35 +9,13 @@ import {
 import {FileSystemAdapter} from 'obsidian';
 import {requestUrl} from 'obsidian';
 import {uiTexts} from 'text';
+import {from, forkJoin, map, switchMap} from 'rxjs';
 import * as path from 'path';
 import * as fs from 'fs';
 
-import {sync} from 'modules/ticket-creator.js';
-
-type ErrorHandlerCallback = (err: any, context: any, methodName: string, args: any[]) => void;
-const defaultErrorHandler = (err: any, ctx: any, name: string, args: any[]) => {
-        console.error(`Ошибка в ${name}:`, err);
-    }
-
-function catchErrors(
-    handler: ErrorHandlerCallback = defaultErrorHandler): MethodDecorator {
-
-    return function (target, propertyKey, descriptor: PropertyDescriptor) {
-        const original = descriptor.value;
-        descriptor.value = async function (...args: any[]) {
-            try {
-                const result = original.apply(this, args);
-                if (result instanceof Promise) {
-                    return await result;
-                }
-                return result;
-            } catch (err) {
-                handler.call(this, err, this, propertyKey as string, args);
-            }
-        };
-        return descriptor;
-    };
-}
+import {sync} from 'src/ticket-creator.js';
+import {catchErrors} from 'src/error-handler.decorator'
+import {Issue} from 'src/types/redmine.types'
 
 interface RedmineIssuesSettings {
     apiKey: string | null;
@@ -77,8 +55,45 @@ export default class RedmineIssuePlugin extends Plugin {
         return true;
     }
 
+    async fetchCommentsForIssue(id: number): Promise<Issue | null> {
+        const headers = {
+            'X-Redmine-API-Key': this.settings.apiKey ?? '',
+            Accept: 'application/json',
+            'User-Agent': 'Obsidian-Plugin',
+        };
+
+        const params = new URLSearchParams({
+            include: 'journals',
+        });
+
+        const options = {
+            url: `${this.settings.redmineUrl}/issues/${id}.json?${params}`,
+            method: 'GET',
+            headers,
+        };
+
+        let resp;
+        try {
+            resp = await requestUrl({
+                url: options.url,
+                method: options.method,
+                headers: options.headers,
+            });
+        } catch (err) {
+            console.error('Error in requestUrl:', err);
+            new Notice(uiTexts.notifications.errors.settingsInvalidApiKey);
+        }
+
+        if (resp?.status !== 200) {
+            console.error('Error API:', resp?.status, resp?.text);
+            return null;
+        }
+        const data = resp.json;
+        return data.issue;
+    }
+
     @catchErrors()
-    async fetchIssues(): Promise<object[] | null> {
+    async fetchIssues(): Promise<Issue[] | null> {
         if (!this.checkRequiredSettings()) return null;
 
         const headers = {
@@ -87,7 +102,7 @@ export default class RedmineIssuePlugin extends Plugin {
             'User-Agent': 'Obsidian-Plugin',
         };
 
-        let issues: object[] = [];
+        let issues: Issue[] = [];
         let data = null;
 
         const params = new URLSearchParams({
@@ -129,7 +144,15 @@ export default class RedmineIssuePlugin extends Plugin {
 
         if (!issues) return false;
 
-        await sync(vaultPath, issues, this.settings.showTableProps, this.settings.ticketsDir);
+        forkJoin(issues.map(issue => {
+            return from(this.fetchCommentsForIssue(issue.id))
+        })).pipe(
+            map(item => item.flat()),
+            switchMap(issuesWithJournal => {
+                return from(sync(vaultPath, issuesWithJournal, this.settings.showTableProps, this.settings.ticketsDir));
+            })
+        ).subscribe();
+        
         return true;
     }
 
@@ -141,7 +164,6 @@ export default class RedmineIssuePlugin extends Plugin {
         let vaultPath: string | null = null;
         if (adapter instanceof FileSystemAdapter) {
             vaultPath = adapter.getBasePath();
-            console.log('Absolute vault path:', vaultPath);
         } else {
             console.warn('adapter is not FileSystemAdapter');
         }
