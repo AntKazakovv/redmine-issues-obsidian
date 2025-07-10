@@ -166,24 +166,29 @@ function clearDirectorySync(dir) {
   }
 }
 
-export const sync = async (vaultPath, issues, showTable, ticketsDir) => {
+export const sync = async (vaultPath, issuesGroups, showTable, ticketsDir) => {
   const pathToTickets = `${vaultPath}/${ticketsDir}`;
-  fs.mkdirSync(pathToTickets, { recursive: true });
-  clearDirectorySync(pathToTickets);
 
-  // Create ticket notes
-  for (const issue of issues) {
-    const mdContent = createMarkdown(issue, showTable);
+  Object.keys(issuesGroups).forEach((project) => {
+    const pathToProject = `${pathToTickets}/${project}`;
+    fs.mkdirSync(pathToProject, { recursive: true });
+    clearDirectorySync(pathToProject);
 
-    const filename = path.join(pathToTickets, `${issue.id}.md`);
-    fs.writeFileSync(filename, mdContent, { flag: 'a' });
-  }
+    // Create ticket notes
+    for (const issue of issuesGroups[project]) {
+      const mdContent = createMarkdown(issue, showTable);
 
-  // Create Kanban
-  const filenameKanban = path.join(vaultPath, `Kanban board.md`);
-  try {
-    fs.unlinkSync(filenameKanban);
-  } catch (e) { }
-  fs.writeFileSync(filenameKanban, createKanban(issues), { flag: 'a' });
+      const filename = path.join(pathToProject, `${issue.id}.md`);
+      fs.writeFileSync(filename, mdContent, { flag: 'a' });
+    }
+
+    // Create Kanban
+    const filenameKanban = path.join(vaultPath, `Kanban board [${project}].md`);
+    try {
+      fs.unlinkSync(filenameKanban);
+    } catch (e) { }
+
+    fs.writeFileSync(filenameKanban, createKanban(issuesGroups[project]), { flag: 'a' });
+  })
 };
 

@@ -9,7 +9,7 @@ import {
 import {FileSystemAdapter} from 'obsidian';
 import {requestUrl} from 'obsidian';
 import {uiTexts} from 'text';
-import {from, forkJoin, map, switchMap} from 'rxjs';
+import {from, forkJoin, map, switchMap, filter} from 'rxjs';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -147,11 +147,24 @@ export default class RedmineIssuePlugin extends Plugin {
         forkJoin(issues.map(issue => {
             return from(this.fetchCommentsForIssue(issue.id))
         })).pipe(
-            map(item => item.flat()),
+            filter(item => !!item),
+            map((item: Issue[]) => item.flat()),
+            map((issues) => {
+                return issues.reduce((acc, issue) => {
+                    const key = issue.project.name;
+                    if (!(key in acc)) {
+                        // @ts-ignore
+                        acc[key] = [];
+                    }
+                    // @ts-ignore
+                    acc[key].push(issue);
+                    return acc;
+                }, {})
+            }),
             switchMap(issuesWithJournal => {
                 return from(sync(vaultPath, issuesWithJournal, this.settings.showTableProps, this.settings.ticketsDir));
-            })
-        ).subscribe();
+            }),
+        ).subscribe(console.log);
         
         return true;
     }
